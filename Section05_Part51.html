@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!--HEADER BEGINS-->
+	<head>
+		<meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+		<meta content="utf-8" http-equiv="encoding">
+		<title>"Sec05_Prt51_V1.0"</title>
+	</head>
+<!--HEADER ENDS-->
+
+<!--BODY BEGINS-->
+	<body>
+	<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<!--SCRIPT BEGINS-->
+		<script>
+//QUADRANT A: BEFORE CONNECTION, THERE WERE ONLY DOTS--------------------------------
+		    
+            //GROCERY LIST: BARE ESSENTIALS
+			var ballX = 400;
+			var ballY = 400;
+			var ballSpeedX = 5;
+			var ballSpeedY = 7; 
+			//Variables are flexible, their value can change
+			
+			const BRICK_W = 80;
+			const BRICK_H = 20;
+			const BRICK_GAP = 2;
+			const BRICK_COLS = 10;
+			const BRICK_ROWS = 14;
+			
+			var brickGrid = new Array(BRICK_COLS * BRICK_ROWS);
+            var bricksLeft = 0;
+			
+			const PADDLE_WIDTH = 120;
+			const PADDLE_THICKNESS = 15;
+			const PADDLE_DIST_FROM_EDGE = 60; 
+			//Constants are fixed, their value are locked in
+			var paddleX = 400;
+			
+			var canvas, canvasContext;
+			
+			var mouseX = 0;
+			var mouseY = 0;
+            
+//QUADRANT B: ACTION/REACTION---------------------------------
+			
+            //FUNCTION #07: "MOUSE INPUT"
+			function updateMousePos(evt) {
+				var rect = canvas.getBoundingClientRect();
+				var root = document.documentElement;
+				
+				mouseX = evt.clientX - rect.left - root.scrollLeft;
+				mouseY = evt.clientY - rect.top - root.scrollTop;
+				
+				paddleX = mouseX - PADDLE_WIDTH * 0.50;
+                
+                //cheat/hack to test ball in any position
+                /*ballX = mouseX;
+                ballY = mouseY;
+                ballSpeedX = 4;
+                ballSpeedY = -4;*/
+			}
+			
+			//FUNCTION #11: "BRICK REMOVAL"
+			function brickReset(){
+                bricksLeft = 0;
+                var i;
+				for(i=0;i< 3*BRICK_COLS;i++){
+                    brickGrid[i] = false; //This erases top 3 rows for gutter
+                }
+                for(;i<BRICK_COLS * BRICK_ROWS;i++){
+                    brickGrid[i] = true;
+                    bricksLeft++;
+				} //end of for, each brick
+			} //end of function brickReset
+		
+			//FUNCTION #01: "THE BIG PICTURE"
+			window.onload = function(){
+				canvas = document.getElementById('gameCanvas');
+				canvasContext = canvas.getContext('2d');
+				
+				var framesPerSecond = 30;
+				setInterval(updateAll, 1000/framesPerSecond);
+				
+				canvas.addEventListener('mousemove',updateMousePos);
+				
+				brickReset();
+                ballreset();
+			}
+			
+			//FUNCTION #02: "ZIP-TIE:01"
+			function updateAll(){ //This ties together visual and behavior
+				moveAll();
+				drawAll();
+			}
+			
+			//FUNCTION #08: "GAME RESTART"
+			function ballReset(){
+				ballX = canvas.width * 0.50;
+				ballY = canvas.height * 0.55;
+			}
+            
+            //FUNCTION #13: BALL BOUNCES OFF THE WALLS
+            function ballMove(){
+                ballX += ballSpeedX;
+				ballY += ballSpeedY;
+				
+                //added && ballSpeedX < 0.0 to reinforce the 
+				if(ballX < 0 && ballSpeedX < 0.0) { //LEFT
+					ballSpeedX *= -1; //Reverse Direction
+				}
+				if(ballX > canvas.width && ballSpeedX > 0.0) { //RIGHT
+					ballSpeedX *= -1;
+				}
+				if(ballY < 0 && ballSpeedY < 0.0) { //TOP
+					ballSpeedY *= -1;
+				}				
+				if(ballY > canvas.height) { //BOTTOM
+					ballReset(); //THIS CALLS FOR RESTART
+                    brickReset();
+					ballSpeedY *= -1; 
+				}
+            }
+            
+            //FUNCTION #16: BOUNCE CORRECTION ON BOTTOM ROW
+            function isBrickAtColRow(col, row){
+                if(col >= 0 && col < BRICK_COLS &&
+                   row >= 0 && row < BRICK_ROWS){
+                    var brickIndexUnderCoord = rowColToArrayIndex(col, row);
+                    return brickGrid [brickIndexUnderCoord]; //brick collision
+                } else {
+                    return false;
+                }
+            }
+            
+            //FUNCTION #14: BALL BOUNCES OFF THE BRICKS
+            function ballBrickHandling(){
+                var ballBrickCol = Math.floor(ballX/BRICK_W);
+                var ballBrickRow = Math.floor(ballY/BRICK_H);
+                var brickIndexUnderBall = rowColToArrayIndex(ballBrickCol, ballBrickRow);
+                
+                if(ballBrickCol >= 0 &&
+                   ballBrickCol < BRICK_COLS &&
+                   ballBrickRow >= 0 &&
+                   ballBrickRow < BRICK_ROWS){
+                    
+                    if(isBrickAtColRow(ballBrickCol, ballBrickRow)) {
+                        brickGrid[brickIndexUnderBall] = false;
+                        bricksLeft--;
+                        console.log(bricksLeft);
+                        
+                        var prevBallX = ballX - ballSpeedX;
+                        var prevBallY = ballY - ballSpeedY;
+                        var prevBrickCol = Math.floor(prevBallX / BRICK_W);
+                        var prevBrickRow = Math.floor(prevBallY / BRICK_H);
+                        
+                        var bothTestsFailed = true;
+                        
+                        if(prevBrickCol != ballBrickCol) {
+                            if(isBrickAtColRow(prevBrickCol, ballBrickRow) == false){
+                                ballSpeedX *= -1;
+                                bothTestsFailed = false;
+                            }
+                            
+                        }
+                        if(prevBrickRow != ballBrickRow) {
+                                                        
+                            if(isBrickAtColRow(ballBrickCol, prevBrickRow) == false) {
+                                ballSpeedY *= -1;
+                                bothTestsFailed = false;
+                            }
+                        }
+                        
+                        if (bothTestsFailed) { //"ARM PIT" CASE
+                            ballSpeedX *= -1; //PREVENTS BALL FROM GOING THROUGH CORNER
+                            ballSpeedY *= -1;
+                        }
+                    } //end of Brick Found
+                } // end of valid col and row
+            } // end of ballBrickHandling Function
+            
+            
+            //FUNCTION #15: BALL BOUNCES OFF THE PADDLE
+            function ballPaddleHandling(){
+                //PADDLE COLLISION
+				var paddleTopEdgeY = canvas.height-PADDLE_DIST_FROM_EDGE;
+				var paddleBottomEdgeY = paddleTopEdgeY + PADDLE_THICKNESS;
+				var paddleLeftEdgeX = paddleX;
+				var paddleRightEdgeX = paddleLeftEdgeX + PADDLE_WIDTH;
+				
+				//BALL COLLISION
+				if(ballY > paddleTopEdgeY && //Below the top of paddle
+					ballY < paddleBottomEdgeY && //Above bottom of paddle
+					ballX > paddleLeftEdgeX && //Right of the left side of paddle
+					ballX < paddleRightEdgeX) { //Left of the right side of paddle
+					ballSpeedY *= -1; //PADDLE CONTROL
+					
+					var centerOfPaddleX = paddleX + PADDLE_WIDTH * 0.5;
+					var ballDistFromPaddleCenterX = ballX - centerOfPaddleX;
+					ballSpeedX = ballDistFromPaddleCenterX * 0.35;
+                    
+                    if(bricksLeft == 0){ //After all bricks are gone.
+                        brickReset(); //Brick wall respawns after ball touches paddle
+                    } // out of bricks
+				} // ball center inside paddle
+            } //end of ballPaddleHandling func
+            			
+            //FUNCTION #03: "FLIP BOOK" "ZipTie:03"
+			function moveAll(){
+                ballMove();
+                
+                ballBrickHandling();
+                
+                ballPaddleHandling();
+            }
+
+//QUADRANT C: EVERYTHING VISUAL IS RIGHT BELOW---------------------------------------        
+			//FUNCTION #04: "INK & PAINT" "ZipTie:02"
+			function drawAll(){
+				colorRect(0,0, canvas.width, canvas.height, 'black'); //BLACK CANVAS
+				
+				colorCircle(ballX,ballY, 10, 'orange'); //BOUNCING BALL
+				
+				colorRect(paddleX,canvas.height-PADDLE_DIST_FROM_EDGE,
+						  PADDLE_WIDTH,PADDLE_THICKNESS,'yellow'); //PLAYER'S PADDLE
+						  
+				drawBricks(); //BRICK WALL
+			}
+			
+			//FUNCTION #05: "BLACK CANVAS"
+			function colorRect(topLeftX,topLeftY, boxWidth, boxHeight, fillColor){
+				canvasContext.fillStyle = fillColor;
+				canvasContext.fillRect(topLeftX,topLeftY, boxWidth, boxHeight);
+			}
+			
+			//FUNCTION #06: "BOUNCING BALL"
+			function colorCircle(centerX, centerY, radius, fillColor){
+				canvasContext.fillStyle = fillColor; //WHAT TYPE?
+				canvasContext.beginPath(); //STARTING POINT
+				canvasContext.arc(ballX,ballY, 10, 0, Math.PI*2, true); //CUSTOM SPECS
+				canvasContext.fill(); //SELF-EXPLANITORY
+			}
+			
+			//FUNCTION #09: "CURSOR LOCATION"
+			/*function colorText(showWords,textX,textY,fillColor){
+				canvasContext.fillStyle = fillColor;
+				canvasContext.fillText(showWords,textX,textY);
+			}*/
+            
+            //FUNCTION #12:
+            function rowColToArrayIndex(col, row){
+                return col + BRICK_COLS * row;
+            }
+			
+			//FUNCTION #10: "BRICK WALL"
+			//(counterStart,countUntilEnd,addOneForever)
+			function drawBricks(){
+				for(var eachRow=0;eachRow<BRICK_ROWS;eachRow++){
+					for(var eachCol=0;eachCol<BRICK_COLS * BRICK_ROWS;eachCol++){
+
+						var arrayIndex = rowColToArrayIndex(eachCol, eachRow);
+
+						if(brickGrid[arrayIndex]){
+						colorRect(BRICK_W*eachCol,BRICK_H*eachRow, BRICK_W-BRICK_GAP, BRICK_H-BRICK_GAP, 'green');
+						} //end of is this brcik here
+					} //end of for, each brick
+				}
+			} //end of function drawBricks
+			
+			//A graphic, inside an array, inside an if statment, inside a for loop, inside another for loop, inside a function
+			//https://www.youtube.com/watch?v=G2jUhnCU9iA
+		</script>
+<!--SCRIPT ENDS-->
+
+	</body>
+</html>
